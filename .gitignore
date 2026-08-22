@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated datasets and source Gaussian assets are local/remote runtime inputs.
+data/
+runs/
+output/
+*.sif
+
+# Legacy NGFF demonstration input; SimGen generates its own simulation state.
+simgen/ngff_runtime/vendor/mpm_solver_warp/sand_column.h5

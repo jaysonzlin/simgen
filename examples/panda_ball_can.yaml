@@ -1,0 +1,17 @@
+# Three-object GPU smoke scene. Positions are seeded and automatically placed
+# without overlap; add `pose.position` to an object to make its placement fixed.
+seed: 42
+assets_root: ../data/GSCollision/objects
+
+objects:
+  - id: panda_0
+    asset: panda
+  - id: ball_0
+    asset: ball
+  - id: can_0
+    asset: can
+
+outputs:
+  keep_simulation: true
+  point_views: false
+  trajectory_video: false

@@ -1,0 +1,171 @@
+Bootstrap: docker
+From: nvidia/cuda:12.6.3-devel-ubuntu22.04
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # 1. System Dependencies
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        wget \
+        ninja-build \
+        ca-certificates \
+        pkg-config \
+        libglvnd0 \
+        libglvnd-dev \
+        libgl1 \
+        libglx0 \
+        libegl1 \
+        libgles2 \
+        libgl1-mesa-dev \
+        libegl1-mesa-dev \
+        libgles2-mesa-dev \
+        libglib2.0-0 \
+        libusb-1.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    ldconfig
+
+    # 2. Install Miniforge
+    wget -qO /tmp/miniforge.sh \
+        https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+    bash /tmp/miniforge.sh -b -p /opt/conda
+    rm /tmp/miniforge.sh
+
+    # 3. Mamba Environment Setup
+    # Override CUDA check so it doesn't fail due to missing host drivers during build
+    export CONDA_OVERRIDE_CUDA="12.6"
+
+    /opt/conda/bin/mamba create -y -p /opt/conda/envs/app python=3.10
+
+    # Install core libraries plus pybind11 for CUDA extension builds.
+    /opt/conda/bin/mamba install -y -p /opt/conda/envs/app \
+        cuda-version=12.6 \
+        pybind11 \
+        -c conda-forge
+
+    # 4. Set Build Variables for Source Compilations
+    ENV_BIN="/opt/conda/envs/app/bin"
+    ENV_PATH="/opt/conda/envs/app"
+
+    export CUDA_HOME="/usr/local/cuda"
+    export PATH="/usr/local/cuda/bin:$ENV_BIN:$PATH"
+    export CUDACXX="/usr/local/cuda/bin/nvcc"
+
+    # Define architectures for ALL Cannon GPU partitions:
+    #   8.0 = A100   (gpu, kempner, gpu_requeue -C a100, seas_gpu)
+    #   9.0 = H100   (gpu_requeue -C h100, kempner_h100)
+    #   9.0 = H200   (gpu_h200, kempner uses Hopper sm_90 too)
+    # Pinning only "9.0" makes the container fail on every A100
+    # partition with "no kernel image is available for execution".
+    # Append "+PTX" on the highest arch so future GPUs JIT-compile.
+    export TORCH_CUDA_ARCH_LIST="7.0;8.0;9.0+PTX"
+
+    # This tells source builds where to find pybind11 headers.
+    export CPATH="$ENV_PATH/include:$CPATH"
+    # This tells the linker where to find the libraries
+    export LIBRARY_PATH="$ENV_PATH/lib:$LIBRARY_PATH"
+
+    # 5. Install source-built dependencies
+    export FORCE_CUDA=1
+
+    # 6. Install only the runtime dependencies imported by SimGen and its
+    #    vendored NGFF MPM/renderer stack. Training, VLM, and unused mesh
+    #    tooling from the original NGFF requirements are intentionally omitted.
+    cat <<EOF > /tmp/requirements.txt
+torch==2.7.1
+torchvision==0.22.1
+numpy==1.26.4
+plyfile
+matplotlib
+Pillow
+imageio
+imageio-ffmpeg
+h5py
+hdf5plugin
+gsplat
+opencv_python_headless
+warp_lang==0.10.1
+taichi==1.5.0
+git+https://github.com/facebookresearch/sam2.git
+git+https://github.com/IDEA-Research/GroundingDINO.git
+tqdm
+PyYAML
+PyMCubes
+EOF
+
+    $ENV_BIN/pip install -r /tmp/requirements.txt --extra-index-url https://download.pytorch.org/whl/cu126
+    $ENV_BIN/pip install torch-cluster -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
+
+    # Cleanup
+    rm /tmp/requirements.txt
+
+    # Remove conda-shipped libcuda stubs and the CUDA toolkit stubs
+    # directory so the host driver injected by --nv at runtime always
+    # wins. Leaving stubs around can cause "version mismatch" or
+    # "CUDA driver too old" errors when the conda libcuda.so.1 stub
+    # gets resolved before the real driver. (This was correct in the
+    # original recipe.)
+    find /opt/conda -name "libcuda.so*" -delete 2>/dev/null || true
+    find /opt/conda -name "libnvidia-ml.so*" -delete 2>/dev/null || true
+    rm -rf /usr/local/cuda/lib64/stubs
+
+    # Make sure /dev/shm is mountable as a real tmpfs at runtime:
+    # do NOT pre-create files there in the image.
+    chmod 1777 /dev/shm 2>/dev/null || true
+
+%environment
+
+    export NVIDIA_DRIVER_CAPABILITIES=all
+
+    # Headless EGL rendering.
+    # On Cannon GPU nodes there's no X display, so we force EGL.
+    # PYOPENGL_PLATFORM=egl tells PyOpenGL to use libEGL instead of GLX.
+    # This is the right setting for headless GPU rendering with --nv.
+    export PYOPENGL_PLATFORM=egl
+
+    # 1. Primary Pathing
+    # /.singularity.d/libs MUST come first on LD_LIBRARY_PATH so that the
+    # host driver libraries injected by `singularity exec --nv` win over
+    # anything else. Then system CUDA, then the conda env.
+    export PATH="/opt/conda/envs/app/bin:/opt/conda/bin:/usr/local/cuda/bin:$PATH"
+    export LD_LIBRARY_PATH="/.singularity.d/libs:/usr/local/cuda/lib64:/opt/conda/envs/app/lib:$LD_LIBRARY_PATH"
+
+    # 2. CUDA Home & JIT Compilation Headers
+    # Fixes "cuda.h not found" during runtime JIT (Triton / torch.compile / Taichi)
+    export CUDA_HOME="/usr/local/cuda"
+    export CPATH="/usr/local/cuda/include:$CPATH"
+    export C_INCLUDE_PATH="/usr/local/cuda/include:$C_INCLUDE_PATH"
+    export CPLUS_INCLUDE_PATH="/usr/local/cuda/include:$CPLUS_INCLUDE_PATH"
+    export LIBRARY_PATH="/usr/local/cuda/lib64:$LIBRARY_PATH"
+
+    # 3. Architecture list at runtime so any JIT (Triton, torch.compile,
+    # Taichi AOT) compiles for whichever Cannon GPU the job lands on.
+    export TORCH_CUDA_ARCH_LIST="7.0;8.0;9.0+PTX"
+
+    # 4. SSL/Security Certificates
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+    export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+    # 5. Genesis-specific runtime hints.
+    # When running headless (no display) on a single GPU compute node,
+    # binding EGL to device 0 avoids the "GLError 12289 / EGL display
+    # not initialized" crash that's common on shared GPU systems.
+    # Override these in your job script if you allocate >1 GPU.
+    export EGL_DEVICE_ID=${EGL_DEVICE_ID:-0}
+    export QD_VISIBLE_DEVICE=${QD_VISIBLE_DEVICE:-0}
+
+    # 6. Disable PyTorch's tensor sharing via /dev/shm when the host
+    # /dev/shm is too small or read-only. Setting strategy=file_system
+    # makes torch.multiprocessing fall back to file-backed shm under
+    # the user's writable space (e.g., $TMPDIR or a bound scratch dir).
+    # If you bind a writable scratch dir at /dev/shm via -B, this is a no-op.
+    # See diagnostic note in the cover email.
+
+%runscript
+    exec /bin/bash "$@"

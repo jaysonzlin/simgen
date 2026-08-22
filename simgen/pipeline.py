@@ -18,6 +18,9 @@ from .outputs import write_object_hdf5
 from .sampling import build_object_trajectory, farthest_point_indices, sh_dc_to_rgb
 
 
+COMPLETION_MARKER = ".simgen_complete"
+
+
 @dataclass(frozen=True)
 class RawSimulation:
     positions: np.ndarray
@@ -108,9 +111,11 @@ def run(
         raise NotImplementedError("selective --force execution will be enabled with remote stage adapters")
     destination = Path(output)
     if destination.exists():
-        if resume and (destination / "metadata.json").is_file():
+        if resume and (destination / COMPLETION_MARKER).is_file():
             return destination
-        raise FileExistsError(f"output already exists: {destination}")
+        if (destination / COMPLETION_MARKER).is_file():
+            raise FileExistsError(f"output already exists: {destination}")
+        shutil.rmtree(destination)
 
     scene = load_scene(Path(scene_path), cli_overrides=cli_overrides or {})
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +147,7 @@ def run(
             raw_ngff = staging / "raw_ngff"
             if raw_ngff.exists():
                 shutil.rmtree(raw_ngff)
+        (staging / COMPLETION_MARKER).touch()
         staging.replace(destination)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)

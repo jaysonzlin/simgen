@@ -47,6 +47,7 @@ def test_pipeline_writes_compact_package_when_optional_outputs_are_disabled(tmp_
 
     assert (output / "scene.yaml").is_file()
     assert (output / "metadata.json").is_file()
+    assert (output / ".simgen_complete").is_file()
     assert (output / "objects" / "000" / "pc.hdf5").is_file()
     assert (output / "view_0" / "00000000.png").is_file()
     assert not (output / "raw_ngff").exists()
@@ -74,6 +75,25 @@ def test_pipeline_creates_a_missing_output_parent_directory(tmp_path: Path) -> N
     )
 
     assert output.is_dir()
+
+
+def test_pipeline_rebuilds_an_existing_output_without_completion_marker(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        f"seed: 7\nassets_root: {assets}\nobjects:\n  - id: ball_a\n    asset: ball\n"
+    )
+    output_path = tmp_path / "sample_0"
+    output_path.mkdir()
+    (output_path / "metadata.json").write_text("partial metadata")
+    (output_path / "partial-artifact").write_text("incomplete")
+
+    output = run(scene, output_path, resume=True, force=set(), runtime=FakeRuntime())
+
+    assert (output / ".simgen_complete").is_file()
+    assert (output / "metadata.json").is_file()
+    assert not (output / "partial-artifact").exists()
 
 
 def test_pipeline_retains_native_ngff_output_without_simplified_simulation_export(

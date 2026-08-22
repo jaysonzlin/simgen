@@ -123,6 +123,7 @@ def run(
         raise FileExistsError(f"output already exists: {destination}")
 
     scene = load_scene(Path(scene_path), cli_overrides=cli_overrides or {})
+    destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.simgen-", dir=destination.parent))
     try:
         shutil.copy2(scene.source_path, staging / "scene.yaml")

@@ -49,3 +49,22 @@ def test_pipeline_writes_compact_package_when_optional_outputs_are_disabled(tmp_
     assert not (output / "view_0" / "point_views").exists()
     assert not (output / "pc_trajectory.mp4").exists()
     assert len(json.loads((output / "view_0" / "cameras.json").read_text())) == 49
+
+
+def test_pipeline_creates_a_missing_output_parent_directory(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        f"seed: 7\nassets_root: {assets}\nobjects:\n  - id: ball_a\n    asset: ball\n"
+    )
+
+    output = run(
+        scene,
+        tmp_path / "runs" / "sample_0",
+        resume=True,
+        force=set(),
+        runtime=FakeRuntime(),
+    )
+
+    assert output.is_dir()

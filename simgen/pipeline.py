@@ -130,6 +130,14 @@ def run(
         raw = runtime.simulate(scene, staging)
         instances = _write_trajectories(staging, scene, raw)
         _write_view(staging, runtime.render(scene, raw), scene.timeline.frames)
+        if scene.outputs.trajectory_video:
+            from .trajectory_video import render_trajectory_video
+
+            render_trajectory_video(
+                [staging / "objects" / f"{index:03d}" / "pc.hdf5" for index in range(len(scene.objects))],
+                staging / "pc_trajectory.mp4",
+                scene.timeline.fps,
+            )
         write_metadata(staging / "metadata.json", scene)
         metadata_path = staging / "metadata.json"
         metadata = json.loads(metadata_path.read_text())

@@ -43,11 +43,12 @@ def run_mpm(*, model_path: Path, config_path: Path, output_path: Path, elastic_m
     )
 
 
-def run_render(*, model_path: Path, config_path: Path, output_path: Path) -> None:
+def run_render(
+    *, model_path: Path, config_path: Path, output_path: Path, background_path: Path | None = None
+) -> None:
     """Render a 480-square stationary NGFF view using locally vendored code."""
 
-    subprocess.run(
-        [
+    command = [
             sys.executable,
             "-m",
             "dataset.render",
@@ -63,7 +64,11 @@ def run_render(*, model_path: Path, config_path: Path, output_path: Path) -> Non
             "0",
             "--render_depth",
             "--render_img",
-        ],
+        ]
+    if background_path is not None:
+        command.extend(["--background_path", str(background_path)])
+    subprocess.run(
+        command,
         check=True,
         env=_vendor_environment(),
     )

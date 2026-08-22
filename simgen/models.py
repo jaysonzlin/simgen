@@ -42,6 +42,7 @@ class RenderSpec:
     width: int = 480
     height: int = 480
     camera_preset: str = "simgen_camera_v1"
+    background_path: Path | None = None
 
 
 @dataclass(frozen=True)

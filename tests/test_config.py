@@ -42,6 +42,31 @@ def test_load_scene_applies_49_frame_24_fps_defaults(scene_file: Path) -> None:
     assert scene.outputs.trajectory_video is False
 
 
+def test_load_scene_resolves_named_background_beside_ngff_objects(
+    tmp_path: Path, assets_root: Path
+) -> None:
+    background = assets_root.parent / "backgrounds" / "table6"
+    background.mkdir(parents=True)
+    scene_file = tmp_path / "scene.yaml"
+    scene_file.write_text(
+        "\n".join(
+            [
+                "seed: 17",
+                f"assets_root: {assets_root}",
+                "objects:",
+                "  - id: ball_a",
+                "    asset: ball",
+                "render:",
+                "  background: table6",
+            ]
+        )
+    )
+
+    scene = load_scene(scene_file, cli_overrides={})
+
+    assert scene.render.background_path == background
+
+
 def test_cli_model_path_overrides_yaml_then_environment(
     scene_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -146,10 +146,19 @@ def load_scene(path: Path, *, cli_overrides: Mapping[str, object]) -> ResolvedSc
         ),
     )
     render_data = _mapping(data.get("render"), "render")
+    background_name = render_data.get("background")
+    if background_name is not None and (not isinstance(background_name, str) or not background_name):
+        raise ValueError("render.background must be a non-empty background name")
+    background_path = (
+        assets_root.parent / "backgrounds" / background_name if background_name is not None else None
+    )
+    if background_path is not None and not background_path.is_dir():
+        raise FileNotFoundError(f"render.background does not exist: {background_path}")
     render = RenderSpec(
         width=_positive_int(render_data.get("width", 480), "render.width"),
         height=_positive_int(render_data.get("height", 480), "render.height"),
         camera_preset=str(render_data.get("camera_preset", "simgen_camera_v1")),
+        background_path=background_path,
     )
     outputs_data = _mapping(data.get("outputs"), "outputs")
     outputs = OutputSpec(

@@ -68,3 +68,29 @@ def test_pipeline_creates_a_missing_output_parent_directory(tmp_path: Path) -> N
     )
 
     assert output.is_dir()
+
+
+def test_pipeline_writes_trajectory_video_when_requested(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        "\n".join(
+            [
+                "seed: 7",
+                f"assets_root: {assets}",
+                "timeline:",
+                "  frames: 1",
+                "objects:",
+                "  - id: ball_a",
+                "    asset: ball",
+                "outputs:",
+                "  trajectory_video: true",
+            ]
+        )
+    )
+
+    output = run(scene, tmp_path / "sample_0", resume=True, force=set(), runtime=FakeRuntime())
+
+    assert (output / "pc_trajectory.mp4").is_file()
+    assert (output / "pc_trajectory.mp4").stat().st_size > 0

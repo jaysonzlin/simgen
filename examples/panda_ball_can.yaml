@@ -3,15 +3,38 @@
 seed: 42
 assets_root: ../../edited-neural-gaussian-force-fields/data/GSCollision/objects
 
+render:
+  # Resolves to ../../edited-neural-gaussian-force-fields/data/GSCollision/backgrounds/table6.
+  background: table6
+
+physics:
+  profile: ngff_dynamic
+  overrides:
+    nu: 0.3
+    rpic_damping: 0.9
+    n_grid: 200
+    grid_lim: 4
+    material: jelly
+    g: [0, 0, -5]
+
 objects:
   - id: panda_0
     asset: panda
     scale: 0.6
+    physics:
+      E: 1.0e5
+      density: 700
   - id: ball_0
     asset: ball
     scale: 0.4
+    physics:
+      E: 8.0e5
+      density: 600
   - id: can_0
     asset: can
+    physics:
+      E: 1.0e6
+      density: 800
 
 outputs:
   keep_simulation: true

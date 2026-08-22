@@ -58,16 +58,6 @@ def _write_view(output: Path, view: RenderedView, frames: int) -> None:
     (root / "cameras.json").write_text(json.dumps([view.camera] * frames, indent=2) + "\n")
 
 
-def _write_raw_simulation(output: Path, raw: RawSimulation) -> None:
-    root = output / "simulation"
-    root.mkdir()
-    for frame, positions in enumerate(raw.positions):
-        with h5py.File(root / f"{frame:04d}.h5", "w") as destination:
-            destination.create_dataset("pos", data=np.asarray(positions, dtype=np.float32))
-    with h5py.File(root / "shs.h5", "w") as destination:
-        destination.create_dataset("shs", data=np.asarray(raw.sh_dc, dtype=np.float32)[:, np.newaxis, :])
-
-
 def _write_trajectories(output: Path, scene, raw: RawSimulation) -> list[dict[str, object]]:
     if raw.positions.ndim != 3 or raw.positions.shape[2] != 3:
         raise ValueError("raw positions must have shape (frames, points, 3)")
@@ -148,8 +138,10 @@ def run(
         metadata = json.loads(metadata_path.read_text())
         metadata["instances"] = instances
         metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
-        if scene.outputs.keep_simulation:
-            _write_raw_simulation(staging, raw)
+        if not scene.outputs.keep_simulation:
+            raw_ngff = staging / "raw_ngff"
+            if raw_ngff.exists():
+                shutil.rmtree(raw_ngff)
         staging.replace(destination)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)

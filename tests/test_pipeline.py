@@ -11,6 +11,9 @@ from simgen.pipeline import RawSimulation, RenderedView, run
 
 class FakeRuntime:
     def simulate(self, scene, workdir: Path) -> RawSimulation:
+        raw_ngff = workdir / "raw_ngff"
+        raw_ngff.mkdir()
+        (raw_ngff / "0000.h5").write_text("native NGFF output")
         total_points = 2048 * len(scene.objects)
         positions = np.zeros((scene.timeline.frames, total_points, 3), dtype=np.float32)
         sh_dc = np.zeros((total_points, 3), dtype=np.float32)
@@ -46,6 +49,7 @@ def test_pipeline_writes_compact_package_when_optional_outputs_are_disabled(tmp_
     assert (output / "metadata.json").is_file()
     assert (output / "objects" / "000" / "pc.hdf5").is_file()
     assert (output / "view_0" / "00000000.png").is_file()
+    assert not (output / "raw_ngff").exists()
     assert not (output / "simulation").exists()
     assert not (output / "view_0" / "point_views").exists()
     assert not (output / "view_0" / "rgb.mp4").exists()
@@ -70,6 +74,32 @@ def test_pipeline_creates_a_missing_output_parent_directory(tmp_path: Path) -> N
     )
 
     assert output.is_dir()
+
+
+def test_pipeline_retains_native_ngff_output_without_simplified_simulation_export(
+    tmp_path: Path,
+) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        "\n".join(
+            [
+                "seed: 7",
+                f"assets_root: {assets}",
+                "objects:",
+                "  - id: ball_a",
+                "    asset: ball",
+                "outputs:",
+                "  keep_simulation: true",
+            ]
+        )
+    )
+
+    output = run(scene, tmp_path / "sample_0", resume=True, force=set(), runtime=FakeRuntime())
+
+    assert (output / "raw_ngff" / "0000.h5").is_file()
+    assert not (output / "simulation").exists()
 
 
 def test_pipeline_writes_trajectory_video_when_requested(tmp_path: Path) -> None:

@@ -6,8 +6,10 @@ assets_root: ../../edited-neural-gaussian-force-fields/data/GSCollision/objects
 objects:
   - id: panda_0
     asset: panda
+    scale: 0.6
   - id: ball_0
     asset: ball
+    scale: 0.4
   - id: can_0
     asset: can
 

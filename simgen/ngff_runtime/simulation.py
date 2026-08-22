@@ -14,8 +14,8 @@ VENDOR_ROOT = Path(__file__).with_name("vendor")
 def _vendor_environment() -> dict[str, str]:
     environment = os.environ.copy()
     existing = environment.get("PYTHONPATH")
-    legacy_paths = os.pathsep.join((str(VENDOR_ROOT), str(VENDOR_ROOT / "mpm_solver_warp")))
-    environment["PYTHONPATH"] = legacy_paths if not existing else f"{legacy_paths}{os.pathsep}{existing}"
+    vendor_path = str(VENDOR_ROOT)
+    environment["PYTHONPATH"] = vendor_path if not existing else f"{vendor_path}{os.pathsep}{existing}"
     return environment
 
 

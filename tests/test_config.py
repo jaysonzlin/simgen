@@ -40,6 +40,19 @@ def test_load_scene_applies_49_frame_24_fps_defaults(scene_file: Path) -> None:
     assert scene.render.width == scene.render.height == 480
     assert scene.outputs.point_views is False
     assert scene.outputs.trajectory_video is False
+    assert scene.outputs.trajectory_video_fps == 12
+
+
+def test_load_scene_allows_trajectory_video_fps_override(scene_file: Path) -> None:
+    scene_file.write_text(
+        scene_file.read_text()
+        + "\noutputs:\n  trajectory_video: true\n  trajectory_video_fps: 7\n"
+    )
+
+    scene = load_scene(scene_file, cli_overrides={})
+
+    assert scene.outputs.trajectory_video is True
+    assert scene.outputs.trajectory_video_fps == 7
 
 
 def test_load_scene_resolves_named_background_beside_ngff_objects(

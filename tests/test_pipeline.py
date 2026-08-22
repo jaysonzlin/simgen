@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import imageio.v2 as imageio
 import numpy as np
 
 from simgen.pipeline import RawSimulation, RenderedView, run
@@ -86,6 +87,7 @@ def test_pipeline_writes_trajectory_video_when_requested(tmp_path: Path) -> None
                 "    asset: ball",
                 "outputs:",
                 "  trajectory_video: true",
+                "  trajectory_video_fps: 7",
             ]
         )
     )
@@ -94,3 +96,4 @@ def test_pipeline_writes_trajectory_video_when_requested(tmp_path: Path) -> None
 
     assert (output / "pc_trajectory.mp4").is_file()
     assert (output / "pc_trajectory.mp4").stat().st_size > 0
+    assert imageio.get_reader(output / "pc_trajectory.mp4").get_meta_data()["fps"] == 7.0

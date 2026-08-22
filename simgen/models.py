@@ -50,6 +50,7 @@ class OutputSpec:
     keep_simulation: bool = False
     point_views: bool = False
     trajectory_video: bool = False
+    trajectory_video_fps: int = 12
 
 
 @dataclass(frozen=True)

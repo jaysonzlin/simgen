@@ -40,3 +40,4 @@ outputs:
   keep_simulation: true
   point_views: false
   trajectory_video: true
+  trajectory_video_fps: 12

@@ -136,7 +136,7 @@ def run(
             render_trajectory_video(
                 [staging / "objects" / f"{index:03d}" / "pc.hdf5" for index in range(len(scene.objects))],
                 staging / "pc_trajectory.mp4",
-                scene.timeline.fps,
+                scene.outputs.trajectory_video_fps,
             )
         write_metadata(staging / "metadata.json", scene)
         metadata_path = staging / "metadata.json"

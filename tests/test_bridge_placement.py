@@ -9,7 +9,6 @@ from simgen.ngff_runtime.bridge import (
     count_opacity_filtered_points,
     resolve_translations,
 )
-from simgen.placement import AssetBounds
 
 
 class Object:
@@ -26,13 +25,41 @@ class Scene:
 
 
 def test_bridge_uses_seeded_non_overlapping_positions_when_pose_is_omitted() -> None:
-    bounds = {"ball": AssetBounds(center=np.zeros(3), radius=0.2)}
+    cube = np.array(
+        [[x, y, z] for x in (-0.01, 0.01) for y in (-0.01, 0.01) for z in (-0.01, 0.01)],
+        dtype=np.float32,
+    )
+    points = {"ball_a": cube, "ball_b": cube}
 
-    first = resolve_translations(Scene(), bounds)
-    second = resolve_translations(Scene(), bounds)
+    first = resolve_translations(Scene(), points)
+    second = resolve_translations(Scene(), points)
 
     assert first == second
-    assert np.linalg.norm(np.asarray(first[0]) - np.asarray(first[1])) >= 0.4
+    assert np.linalg.norm(np.asarray(first[0]) - np.asarray(first[1])) >= 0.05
+
+
+def test_bridge_uses_ngff_randomized_placement_order_from_gaussian_points() -> None:
+    scene = SimpleNamespace(
+        seed=1,
+        objects=(
+            Object("panda_0", "panda", scale=0.6),
+            Object("ball_0", "ball", scale=0.4),
+            Object("can_0", "can", scale=1.0),
+        ),
+    )
+    cube = np.array(
+        [[x, y, z] for x in (-0.01, 0.01) for y in (-0.01, 0.01) for z in (-0.01, 0.01)],
+        dtype=np.float32,
+    )
+
+    translations = resolve_translations(
+        scene,
+        {"panda_0": cube, "ball_0": cube, "can_0": cube},
+    )
+
+    assert len(translations) == 3
+    assert any(translation == (0.0, 0.0, 0.0) for translation in translations)
+    assert translations[0] != (0.0, 0.0, 0.0)
 
 
 def test_dynamic_config_uses_declared_panda_ball_can_material_values() -> None:

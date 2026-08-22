@@ -6,7 +6,7 @@ import numpy as np
 from ..assets import resolve_asset_paths
 from .camera import SIMGEN_CAMERA_V1
 from .simulation import run_mpm, run_render
-from ..placement import AssetBounds, PlacementObject, resolve_placement
+from ..placement import NgffPlacementObject, resolve_ngff_placement
 
 ASSET_IDS = {n: i for i, n in enumerate(("ball", "bear", "bowl", "can", "cloth", "cloth2", "cloth3", "duck", "duck2", "miku", "panda", "phone", "pillow", "pillow2", "rope", "rope2", "soccer", "toy"))}
 
@@ -53,15 +53,24 @@ def build_dynamic_config(scene) -> dict[str, object]:
     config.update(SIMGEN_CAMERA_V1)
     return config
 
-def resolve_translations(scene, bounds: dict[str, AssetBounds]) -> tuple[tuple[float, float, float], ...]:
-    """Honor explicit poses and otherwise reproduce NGFF-style seeded placement."""
-    placed = resolve_placement(
+def resolve_translations(
+    scene, points_by_instance: dict[str, np.ndarray]
+) -> tuple[tuple[float, float, float], ...]:
+    """Resolve seeded edited-NGFF placements while retaining YAML output order."""
+    result = resolve_ngff_placement(
         seed=scene.seed,
-        objects=[PlacementObject(item.instance_id, item.asset, item.scale or 1.0,
-                                 item.pose.position if item.pose else None) for item in scene.objects],
-        bounds=bounds,
+        objects=[
+            NgffPlacementObject(
+                item.instance_id,
+                item.asset,
+                points_by_instance[item.instance_id],
+                item.scale or 1.0,
+                item.pose.position if item.pose else None,
+            )
+            for item in scene.objects
+        ],
     )
-    return tuple(item.position for item in placed)
+    return tuple(item.position for item in result.placements)
 
 class RemoteNgffRuntime:
     def __init__(self): self.raw_dir = self.config = None; self.counts = []
@@ -78,13 +87,12 @@ class RemoteNgffRuntime:
             count_opacity_filtered_points(data["opacity"], threshold=opacity_threshold)
             for data in ply_data
         ]
-        bounds = {}
+        points_by_instance = {}
         for item, data in zip(scene.objects, ply_data, strict=True):
             points = np.column_stack((data["x"], data["y"], data["z"])).astype(np.float32)
-            radius = float(np.linalg.norm((points.max(axis=0) - points.min(axis=0)) / 2.0))
-            bounds[item.asset] = AssetBounds(center=points.mean(axis=0), radius=radius)
+            points_by_instance[item.instance_id] = points
         root = workdir / "GSCollision"; model = root / "scenes" / str(len(paths)) / "sample"; cloud = model / "point_cloud" / "iteration_30000"; cloud.mkdir(parents=True)
-        translations = resolve_translations(scene, bounds)
+        translations = resolve_translations(scene, points_by_instance)
         combine_ply_files([str(p) for p in paths], str(cloud / "point_cloud.ply"), translations, [item.scale or 1.0 for item in scene.objects])
         (root / "scene_configs").mkdir(); (root / "scene_configs" / f"{len(paths)}.json").write_text(json.dumps({"sample": {"scene_object_idxs": [ASSET_IDS[x.asset] for x in scene.objects]}}))
         self.config = root / "dynamic_config.json"; self.config.write_text(json.dumps(dynamic_config))

@@ -4,7 +4,11 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from simgen.ngff_runtime.bridge import build_dynamic_config, resolve_translations
+from simgen.ngff_runtime.bridge import (
+    build_dynamic_config,
+    count_opacity_filtered_points,
+    resolve_translations,
+)
 from simgen.placement import AssetBounds
 
 
@@ -58,3 +62,10 @@ def test_dynamic_config_uses_declared_panda_ball_can_material_values() -> None:
     assert config["frame_num"] == 49
     assert config["frame_dt"] == 1 / 24
     assert config["n_grid"] == 200
+
+
+def test_opacity_filtered_point_count_matches_ngff_strict_threshold() -> None:
+    retained_opacities = np.array([0.01, 0.02, 0.5], dtype=np.float32)
+    logits = np.log(retained_opacities / (1.0 - retained_opacities))
+
+    assert count_opacity_filtered_points(logits, threshold=0.02) == 1

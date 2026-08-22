@@ -164,6 +164,7 @@ def load_scene(path: Path, *, cli_overrides: Mapping[str, object]) -> ResolvedSc
     outputs = OutputSpec(
         keep_simulation=bool(outputs_data.get("keep_simulation", False)),
         point_views=bool(outputs_data.get("point_views", False)),
+        rgb_video=bool(outputs_data.get("rgb_video", False)),
         trajectory_video=bool(outputs_data.get("trajectory_video", False)),
         trajectory_video_fps=_positive_int(
             outputs_data.get("trajectory_video_fps", 12), "outputs.trajectory_video_fps"

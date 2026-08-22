@@ -48,6 +48,7 @@ def test_pipeline_writes_compact_package_when_optional_outputs_are_disabled(tmp_
     assert (output / "view_0" / "00000000.png").is_file()
     assert not (output / "simulation").exists()
     assert not (output / "view_0" / "point_views").exists()
+    assert not (output / "view_0" / "rgb.mp4").exists()
     assert not (output / "pc_trajectory.mp4").exists()
     assert len(json.loads((output / "view_0" / "cameras.json").read_text())) == 49
 
@@ -97,3 +98,37 @@ def test_pipeline_writes_trajectory_video_when_requested(tmp_path: Path) -> None
     assert (output / "pc_trajectory.mp4").is_file()
     assert (output / "pc_trajectory.mp4").stat().st_size > 0
     assert imageio.get_reader(output / "pc_trajectory.mp4").get_meta_data()["fps"] == 7.0
+
+
+def test_pipeline_writes_rgb_frame_video_when_requested(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        "\n".join(
+            [
+                "seed: 7",
+                f"assets_root: {assets}",
+                "timeline:",
+                "  frames: 2",
+                "  fps: 11",
+                "objects:",
+                "  - id: ball_a",
+                "    asset: ball",
+                "outputs:",
+                "  rgb_video: true",
+            ]
+        )
+    )
+
+    output = run(scene, tmp_path / "sample_0", resume=True, force=set(), runtime=FakeRuntime())
+    video_path = output / "view_0" / "rgb.mp4"
+    reader = imageio.get_reader(video_path)
+    try:
+        frame_count = reader.count_frames()
+        metadata = reader.get_meta_data()
+    finally:
+        reader.close()
+
+    assert frame_count == 2
+    assert metadata["fps"] == 11.0

@@ -129,7 +129,12 @@ def run(
         shutil.copy2(scene.source_path, staging / "scene.yaml")
         raw = runtime.simulate(scene, staging)
         instances = _write_trajectories(staging, scene, raw)
-        _write_view(staging, runtime.render(scene, raw), scene.timeline.frames)
+        view = runtime.render(scene, raw)
+        _write_view(staging, view, scene.timeline.frames)
+        if scene.outputs.rgb_video:
+            from .rgb_video import write_rgb_video
+
+            write_rgb_video(view.images, staging / "view_0" / "rgb.mp4", scene.timeline.fps)
         if scene.outputs.trajectory_video:
             from .trajectory_video import render_trajectory_video
 

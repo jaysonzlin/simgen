@@ -41,6 +41,7 @@ def test_load_scene_applies_49_frame_24_fps_defaults(scene_file: Path) -> None:
     assert scene.outputs.point_views is False
     assert scene.outputs.trajectory_video is False
     assert scene.outputs.trajectory_video_fps == 12
+    assert scene.outputs.rgb_video is False
 
 
 def test_load_scene_allows_trajectory_video_fps_override(scene_file: Path) -> None:

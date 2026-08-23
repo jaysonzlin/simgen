@@ -119,6 +119,8 @@ def run(
 
     scene = load_scene(Path(scene_path), cli_overrides=cli_overrides or {})
     destination.parent.mkdir(parents=True, exist_ok=True)
+    for orphan in destination.parent.glob(f".{destination.name}.simgen-*"):
+        shutil.rmtree(orphan)
     staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.simgen-", dir=destination.parent))
     try:
         shutil.copy2(scene.source_path, staging / "scene.yaml")
@@ -149,7 +151,7 @@ def run(
                 shutil.rmtree(raw_ngff)
         (staging / COMPLETION_MARKER).touch()
         staging.replace(destination)
-    except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
     return destination

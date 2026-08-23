@@ -5,6 +5,7 @@ from pathlib import Path
 
 import imageio.v2 as imageio
 import numpy as np
+import pytest
 
 from simgen.pipeline import RawSimulation, RenderedView, run
 
@@ -33,6 +34,12 @@ class FakeRuntime:
             "cy": 0.0,
         }
         return RenderedView(images=[image] * scene.timeline.frames, depth=depth, alpha=depth, camera=camera)
+
+
+class InterruptedRuntime(FakeRuntime):
+    def simulate(self, scene, workdir: Path) -> RawSimulation:
+        (workdir / "partially-written").write_text("interrupted")
+        raise KeyboardInterrupt
 
 
 def test_pipeline_writes_compact_package_when_optional_outputs_are_disabled(tmp_path: Path) -> None:
@@ -94,6 +101,36 @@ def test_pipeline_rebuilds_an_existing_output_without_completion_marker(tmp_path
     assert (output / ".simgen_complete").is_file()
     assert (output / "metadata.json").is_file()
     assert not (output / "partial-artifact").exists()
+
+
+def test_pipeline_removes_orphaned_staging_before_regenerating_a_sample(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        f"seed: 7\nassets_root: {assets}\nobjects:\n  - id: ball_a\n    asset: ball\n"
+    )
+    orphan = tmp_path / ".sample_0.simgen-interrupted"
+    orphan.mkdir()
+    (orphan / "partial-artifact").write_text("interrupted")
+
+    run(scene, tmp_path / "sample_0", resume=True, force=set(), runtime=FakeRuntime())
+
+    assert not orphan.exists()
+
+
+def test_pipeline_removes_its_staging_directory_when_interrupted(tmp_path: Path) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    scene = tmp_path / "scene.yaml"
+    scene.write_text(
+        f"seed: 7\nassets_root: {assets}\nobjects:\n  - id: ball_a\n    asset: ball\n"
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        run(scene, tmp_path / "sample_0", resume=True, force=set(), runtime=InterruptedRuntime())
+
+    assert not list(tmp_path.glob(".sample_0.simgen-*"))
 
 
 def test_pipeline_retains_native_ngff_output_without_simplified_simulation_export(

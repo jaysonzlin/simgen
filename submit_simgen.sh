@@ -14,10 +14,15 @@
 
 set -euo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${SIMGEN_PROJECT_DIR:-${SLURM_SUBMIT_DIR:-${PWD}}}"
+PROJECT_DIR="$(cd "${PROJECT_DIR}" && pwd)"
 WORKSPACE_DIR="$(cd "${PROJECT_DIR}/.." && pwd)"
 SEED="${SLURM_ARRAY_TASK_ID:?SLURM_ARRAY_TASK_ID must be set by the job array}"
 SCENE_TEMPLATE="${PROJECT_DIR}/examples/panda_ball_can.yaml"
+if [[ ! -f "${SCENE_TEMPLATE}" || ! -f "${PROJECT_DIR}/simgen.sif" ]]; then
+    echo "SimGen project directory is invalid: ${PROJECT_DIR}" >&2
+    exit 2
+fi
 TASK_SCENE="$(mktemp "${PROJECT_DIR}/examples/.panda_ball_can_seed_${SEED}.XXXXXX")"
 CONTAINER_SCENE="/workspace/simgen/examples/$(basename "${TASK_SCENE}")"
 CONTAINER_OUTPUT="runs/panda_ball_can/sample_${SEED}"

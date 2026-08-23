@@ -6,7 +6,7 @@ import shutil
 import subprocess
 
 
-def test_submit_script_maps_each_array_task_to_its_own_seeded_sample(tmp_path: Path) -> None:
+def test_submit_script_uses_slurm_submit_directory_when_spooled(tmp_path: Path) -> None:
     repository = Path(__file__).parents[1]
     source_script = repository / "submit_simgen.sh"
     assert source_script.is_file(), "the SimGen SLURM submission script must exist"
@@ -14,7 +14,9 @@ def test_submit_script_maps_each_array_task_to_its_own_seeded_sample(tmp_path: P
     project = tmp_path / "simgen"
     examples = project / "examples"
     examples.mkdir(parents=True)
-    script = project / "submit_simgen.sh"
+    spool = tmp_path / "slurmd" / "spool" / "job41287757"
+    spool.mkdir(parents=True)
+    script = spool / "submit_simgen.sh"
     shutil.copy2(source_script, script)
     (examples / "panda_ball_can.yaml").write_text(
         "seed: 42\noutputs:\n  keep_simulation: true\n"
@@ -36,11 +38,12 @@ def test_submit_script_maps_each_array_task_to_its_own_seeded_sample(tmp_path: P
     environment = os.environ | {
         "PATH": f"{binary_dir}{os.pathsep}{os.environ['PATH']}",
         "SLURM_ARRAY_TASK_ID": "17",
+        "SLURM_SUBMIT_DIR": str(project),
         "SIMGEN_TEST_INVOCATION": str(invocation_path),
     }
 
     result = subprocess.run(
-        ["bash", str(script)], cwd=project, env=environment, text=True, capture_output=True
+        ["bash", str(script)], cwd=spool, env=environment, text=True, capture_output=True
     )
 
     assert result.returncode == 0, result.stderr

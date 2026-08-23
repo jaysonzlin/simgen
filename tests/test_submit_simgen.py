@@ -51,6 +51,12 @@ def test_submit_script_uses_slurm_submit_directory_when_spooled(tmp_path: Path) 
     assert "--nv" in invocation
     assert f"{tmp_path}:/workspace" in invocation
     assert str(project / "simgen.sif") in invocation
+    assert "-c" in invocation
+    assert "-lc" not in invocation
+    assert any(
+        "/opt/conda/envs/app/bin/python -m simgen.generate" in argument
+        for argument in invocation
+    )
     assert "/workspace/simgen/examples/.panda_ball_can_seed_17" in "\n".join(invocation)
     assert "runs/panda_ball_can/sample_17" in invocation
     assert not list(examples.glob(".panda_ball_can_seed_17.*"))

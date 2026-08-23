@@ -44,5 +44,5 @@ singularity exec --nv \
     --bind "${WORKSPACE_DIR}:/workspace" \
     --bind /tmp:/dev/shm \
     "${PROJECT_DIR}/simgen.sif" \
-    bash -lc 'cd /workspace/simgen && python -m simgen.generate --scene "$1" --output "$2"' \
+    bash -c 'cd /workspace/simgen && /opt/conda/envs/app/bin/python -m simgen.generate --scene "$1" --output "$2"' \
     simgen-submit "${CONTAINER_SCENE}" "${CONTAINER_OUTPUT}"

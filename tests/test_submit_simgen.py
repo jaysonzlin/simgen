@@ -35,10 +35,14 @@ def test_submit_script_uses_slurm_submit_directory_when_spooled(tmp_path: Path) 
         "pathlib.Path(os.environ['SIMGEN_TEST_INVOCATION']).write_text('\\n'.join(sys.argv[1:]))\n"
     )
     singularity.chmod(0o755)
+    nvidia_smi = binary_dir / "nvidia-smi"
+    nvidia_smi.write_text("#!/usr/bin/env bash\nexit 0\n")
+    nvidia_smi.chmod(0o755)
     environment = os.environ | {
         "PATH": f"{binary_dir}{os.pathsep}{os.environ['PATH']}",
         "SLURM_ARRAY_TASK_ID": "17",
-        "SLURM_SUBMIT_DIR": str(project),
+        "SLURM_SUBMIT_DIR": str(spool),
+        "SIMGEN_PROJECT_DIR": str(project),
         "SIMGEN_TEST_INVOCATION": str(invocation_path),
     }
 
@@ -50,6 +54,9 @@ def test_submit_script_uses_slurm_submit_directory_when_spooled(tmp_path: Path) 
     invocation = invocation_path.read_text().splitlines()
     assert "--nv" in invocation
     assert f"{tmp_path}:/workspace" in invocation
+    assert "/n/holylabs" in invocation
+    assert "/net/holy-isilon" in invocation
+    assert "/tmp:/dev/shm" in invocation
     assert str(project / "simgen.sif") in invocation
     assert "-c" in invocation
     assert "-lc" not in invocation

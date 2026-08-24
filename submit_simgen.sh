@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --time=10:30:00
-#SBATCH --array=0-4%4
+#SBATCH --array=0-499%4
 #SBATCH --requeue
 #SBATCH --open-mode=append
 #SBATCH --output=/n/lab_storage/ydu_lab/jaysonzlin/simgen/logs/simgen_%A_%a.out
